@@ -9,7 +9,7 @@
 
 int main(){
 	int clientSocket;
-	char buffer[1024];
+	char buffer[RECIEVESIZE];
 	struct sockaddr_in serverAddr;
 	socklen_t addr_size;
 
