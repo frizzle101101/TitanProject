@@ -15,6 +15,7 @@
 
 #define AXIS 2
 #define BUTTON 1
+#define SENDSIZE 7
 
 static int joystick_fd = -1;
 
@@ -71,7 +72,7 @@ int jsInit(js_event jsE)
     return jsCheck;
 }
 
-void jsRead(char jsVal[7], js_event jsE)
+void jsRead(int socket, char jsVal[7], js_event jsE)
 {
     int readCheck;
     float value;
@@ -115,60 +116,50 @@ void jsRead(char jsVal[7], js_event jsE)
         strcat(jsVal, temp);
         strcat(jsVal, ">");
         puts(jsVal);
-        
-        
+        send(socket,jsVal,SENDSIZE,0);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    int sockfd, portno, n;
-
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
-
-    char buffer[256];
-    if (argc < 3) {
-       fprintf(stderr,"usage %s hostname port\n", argv[0]);
-       exit(0);
-    }
-    portno = atoi(argv[2]);
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
-        error("ERROR opening socket");
-    server = gethostbyname(argv[1]);
-    if (server == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
-        exit(0);
-    }
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, 
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
-    serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0) 
-        error("ERROR connecting");
-    printf("Please enter the message: ");
-    bzero(buffer,256);
-    fgets(buffer,255,stdin);
-    n = write(sockfd,buffer,strlen(buffer));
-    if (n < 0) 
-         error("ERROR writing to socket");
-    bzero(buffer,256);
-    n = read(sockfd,buffer,255);
-    if (n < 0) 
-         error("ERROR reading from socket");
-    printf("%s\n",buffer);
-    
+    // Set up joystick.
     int done = 0;
     struct js_event jsE;
-    char jsVal[7];
+    char jsVal[SENDSIZE];
     jsInit(jsE);
     
+    // Set up server socket.
+    int sock_id, newSocket;
+    struct sockaddr_in serverAddr;
+    struct sockaddr_storage serverStorage;
+    socklen_t addr_size;
+    sock_id = socket(PF_INET, SOCK_STREAM, 0);
+    
+    /*---- Configure settings of the server address struct ----*/
+    /* Address family = Internet */
+    serverAddr.sin_family = AF_INET;
+    /* Set port number, using htons function to use proper byte order */
+    serverAddr.sin_port = htons(8080);
+    /* Set IP address to localhost */
+    //serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    /* Set all bits of the padding field to 0 */
+    memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
+    /*---- Bind the address struct to the socket ----*/
+    bind(sock_id, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
+    /*---- Listen on the socket, with 5 max connection requests queued ----*/
+    if(listen(sock_id,1)==0)
+        printf("Listening\n");
+    else
+        printf("Error\n");
+
+    /*---- Accept call creates a new socket for the incoming connection ----*/
+    addr_size = sizeof serverStorage;
+    newSocket = accept(sock_id, (struct sockaddr *) &serverStorage, &addr_size);
+    
     while (!done) {      
-        jsRead(jsVal, jsE);
-    }
+        jsRead(newSocket, jsVal, jsE);
+    } 
     
     return 0;
 }
