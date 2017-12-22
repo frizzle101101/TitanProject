@@ -1,16 +1,13 @@
-#include <stdio.h>
-#include <unistd.h>			//Used for UART
-#include <fcntl.h>			//Used for UART
-#include <termios.h>		//Used for UART
+#include "rs232.h"
 
 
-void initRs232(void){
+
+int initRs232(void){
 	//-------------------------
 	//----- SETUP USART 0 -----
 	//-------------------------
 	//At bootup, pins 8 and 10 are already set to UART0_TXD, UART0_RXD (ie the alt0 function) respectively
-	int uart0_filestream = -1;
-	
+	int uart0_filestream = 0;
 	//OPEN THE UART
 	//The flags (defined in fcntl.h):
 	//	Access modes (use 1 of these):
@@ -23,11 +20,12 @@ void initRs232(void){
 	//											immediately with a failure status if the output can't be written immediately.
 	//
 	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
+	closeRs232(uart0_filestream);	
 	uart0_filestream = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
 	if (uart0_filestream == -1)
 	{
 		//ERROR - CAN'T OPEN SERIAL PORT
-		printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
+		printf("Error - Unable to open UART.  Ensure it is not in use by another application %d\n", uart0_filestream);
 	}
 	
 	//CONFIGURE THE UART
@@ -48,29 +46,34 @@ void initRs232(void){
 	options.c_lflag = 0;
 	tcflush(uart0_filestream, TCIFLUSH);
 	tcsetattr(uart0_filestream, TCSANOW, &options);
+	return(uart0_filestream);
 }
-void closeRs232(void){
+void closeRs232(int uart0_filestream){
 	//----- CLOSE THE UART -----
-	close(uart0_filestream);
+	if (uart0_filestream != -1)
+	{
+		close(uart0_filestream);
+	}
 }
-void sendBytes(unsigned char *p_tx_buffer){
+void sendBytes(int uart0_filestream, char *p_tx_buffer){
 	//----- TX BYTES -----
 	
 	if (uart0_filestream != -1)
 	{
-		int count = write(uart0_filestream, &tx_buffer[0], (p_tx_buffer - &tx_buffer[0]));		//Filestream, bytes to write, number of bytes to write
+		// (p_tx_buffer - &p_tx_buffer[0])               
+		int count = write(uart0_filestream, &p_tx_buffer[0], strlen(p_tx_buffer));		//Filestream, bytes to write, number of bytes to write
 		if (count < 0)
 		{
 			printf("UART TX error\n");
 		}
 	}
 }
-void recieveBytes(void){
+void recieveBytes(int uart0_filestream){
 //----- CHECK FOR ANY RX BYTES -----
 	if (uart0_filestream != -1)
 	{
 		// Read up to 255 characters from the port if they are there
-		unsigned char rx_buffer[256];
+		char rx_buffer[256];
 		int rx_length = read(uart0_filestream, (void*)rx_buffer, 255);		//Filestream, buffer to store in, number of bytes to read (max)
 		if (rx_length < 0)
 		{

@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include "rs232.h"
 
 #define RECIEVESIZE 7
 
@@ -30,14 +31,21 @@ int main(){
 	/*---- Connect the socket to the server using the address struct ----*/
 	addr_size = sizeof serverAddr;
 	connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
-
+	
+	/* initilize the rs232 port*/
+	int uart0_filestream = initRs232();
+	
 	for(;;)
 	{
 		/*---- Read the message from the server into the buffer ----*/
 		recv(clientSocket, buffer, RECIEVESIZE, 0);
-
+		
+		sendBytes(uart0_filestream, buffer);	
+		
 		/*---- Print the received message ----*/
 		printf("Data received: %s\n",buffer);   
 	}
+
+	closeRs232(uart0_filestream);
 	return 0;
 }
