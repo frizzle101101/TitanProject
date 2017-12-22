@@ -112,7 +112,7 @@ void jsRead(int socket, char jsVal[7], js_event jsE)
         } else {
             // Button has changed.
         }
-        sprintf(temp, "%d", (int)value);
+        sprintf(temp, "%03d", (int)value);
         strcat(jsVal, temp);
         strcat(jsVal, ">");
         puts(jsVal);
